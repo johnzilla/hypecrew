@@ -22,11 +22,14 @@ export const useAuth = () => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id)
         setUser(session?.user ?? null)
+        
         if (session?.user) {
-          // Wait a moment for the trigger to create the profile
-          if (event === 'SIGNED_IN') {
-            setTimeout(() => fetchProfile(session.user.id), 1000)
+          if (event === 'SIGNED_UP') {
+            // For new signups, wait a bit longer for the trigger to complete
+            console.log('New user signed up, waiting for profile creation...')
+            setTimeout(() => fetchProfileWithRetry(session.user.id, 5), 2000)
           } else {
             fetchProfile(session.user.id)
           }
@@ -40,6 +43,42 @@ export const useAuth = () => {
     return () => subscription.unsubscribe()
   }, [])
 
+  const fetchProfileWithRetry = async (userId: string, maxRetries: number) => {
+    let retries = 0
+    
+    const attemptFetch = async (): Promise<void> => {
+      try {
+        console.log(`Fetching profile for user ${userId}, attempt ${retries + 1}`)
+        
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
+
+        if (error) {
+          if (error.code === 'PGRST116' && retries < maxRetries) {
+            // Profile not found, retry
+            retries++
+            console.log(`Profile not found, retrying in 2 seconds... (${retries}/${maxRetries})`)
+            setTimeout(attemptFetch, 2000)
+            return
+          }
+          throw error
+        }
+        
+        console.log('Profile found:', data)
+        setProfile(data)
+        setLoading(false)
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+        setLoading(false)
+      }
+    }
+    
+    await attemptFetch()
+  }
+
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -48,15 +87,7 @@ export const useAuth = () => {
         .eq('id', userId)
         .single()
 
-      if (error) {
-        // If profile doesn't exist, it might still be creating
-        if (error.code === 'PGRST116') {
-          console.log('Profile not found, retrying...')
-          setTimeout(() => fetchProfile(userId), 2000)
-          return
-        }
-        throw error
-      }
+      if (error) throw error
       setProfile(data)
     } catch (error) {
       console.error('Error fetching profile:', error)
@@ -67,6 +98,8 @@ export const useAuth = () => {
 
   const signUp = async (email: string, password: string, fullName: string, userType: 'performer' | 'client') => {
     try {
+      console.log('Signing up user:', { email, fullName, userType })
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -78,9 +111,14 @@ export const useAuth = () => {
         }
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('Signup error:', error)
+        throw error
+      }
+      
+      console.log('Signup successful:', data)
       return { data, error: null }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Signup error:', error)
       return { data: null, error }
     }

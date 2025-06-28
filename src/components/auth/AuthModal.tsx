@@ -38,23 +38,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         if (error) throw error
         onClose()
       } else {
+        // Validate form data
+        if (!formData.fullName.trim()) {
+          throw new Error('Full name is required')
+        }
+        if (formData.password.length < 6) {
+          throw new Error('Password must be at least 6 characters long')
+        }
+        
         const { error } = await signUp(
           formData.email, 
           formData.password, 
-          formData.fullName, 
+          formData.fullName.trim(), 
           formData.userType
         )
+        
         if (error) throw error
         
-        setSuccess('Account created successfully! Please check your email to verify your account.')
-        // Don't close modal immediately for signup to show success message
-        setTimeout(() => {
-          onClose()
-        }, 3000)
+        setSuccess('Account created successfully! You can now sign in.')
+        
+        // Reset form and switch to signin mode
+        setFormData({
+          email: formData.email, // Keep email for convenience
+          password: '',
+          fullName: '',
+          userType: 'client'
+        })
+        setMode('signin')
       }
     } catch (error: any) {
       console.error('Auth error:', error)
-      setError(error.message || 'An error occurred during authentication')
+      let errorMessage = 'An error occurred during authentication'
+      
+      if (error.message) {
+        errorMessage = error.message
+      } else if (error.error_description) {
+        errorMessage = error.error_description
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -62,6 +84,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    // Clear errors when user starts typing
+    if (error) setError('')
+    if (success) setSuccess('')
+  }
+
+  const switchMode = () => {
+    setMode(mode === 'signin' ? 'signup' : 'signin')
+    setError('')
+    setSuccess('')
+    setFormData({
+      email: '',
+      password: '',
+      fullName: '',
+      userType: 'client'
+    })
   }
 
   return (
@@ -78,6 +115,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
+              disabled={loading}
             >
               <X className="w-6 h-6" />
             </button>
@@ -92,6 +130,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   value={formData.fullName}
                   onChange={(e) => handleInputChange('fullName', e.target.value)}
                   required
+                  disabled={loading}
                 />
                 <Select
                   label="I am a..."
@@ -101,6 +140,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     { value: 'client', label: 'Client (Looking for hype talent)' },
                     { value: 'performer', label: 'Performer (Providing hype services)' }
                   ]}
+                  disabled={loading}
                 />
               </>
             )}
@@ -111,6 +151,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               value={formData.email}
               onChange={(e) => handleInputChange('email', e.target.value)}
               required
+              disabled={loading}
             />
 
             <Input
@@ -119,17 +160,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               value={formData.password}
               onChange={(e) => handleInputChange('password', e.target.value)}
               required
+              disabled={loading}
               helperText={mode === 'signup' ? 'Password must be at least 6 characters' : undefined}
             />
 
             {error && (
-              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-200">
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-lg">
+              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-lg border border-green-200">
                 {success}
               </div>
             )}
@@ -146,12 +188,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
           <div className="mt-6 text-center">
             <button
-              onClick={() => {
-                setMode(mode === 'signin' ? 'signup' : 'signin')
-                setError('')
-                setSuccess('')
-              }}
-              className="text-blue-600 hover:text-blue-700 text-sm"
+              onClick={switchMode}
+              className="text-blue-600 hover:text-blue-700 text-sm transition-colors"
               disabled={loading}
             >
               {mode === 'signin' 
