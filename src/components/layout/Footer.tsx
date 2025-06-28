@@ -5,8 +5,16 @@ export const Footer: React.FC = () => {
   return (
     <footer className="bg-white border-t border-gray-100 py-4 px-4">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center">
-          <p className="text-sm text-gray-600 flex items-center justify-center space-x-1">
+        <div className="flex items-center justify-center space-x-4">
+          {/* Hackathon Badge */}
+          <img 
+            src="/white_circle_360x360.png" 
+            alt="Bolt.new Hackathon Badge" 
+            className="w-8 h-8 flex-shrink-0"
+          />
+          
+          {/* Text */}
+          <p className="text-sm text-gray-600 flex items-center space-x-1">
             <span>Made with</span>
             <Heart className="w-4 h-4 text-red-500 fill-current" />
             <span>for the</span>
