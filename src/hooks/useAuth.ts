@@ -21,10 +21,15 @@ export const useAuth = () => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setUser(session?.user ?? null)
         if (session?.user) {
-          fetchProfile(session.user.id)
+          // Wait a moment for the trigger to create the profile
+          if (event === 'SIGNED_IN') {
+            setTimeout(() => fetchProfile(session.user.id), 1000)
+          } else {
+            fetchProfile(session.user.id)
+          }
         } else {
           setProfile(null)
           setLoading(false)
@@ -43,7 +48,15 @@ export const useAuth = () => {
         .eq('id', userId)
         .single()
 
-      if (error) throw error
+      if (error) {
+        // If profile doesn't exist, it might still be creating
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found, retrying...')
+          setTimeout(() => fetchProfile(userId), 2000)
+          return
+        }
+        throw error
+      }
       setProfile(data)
     } catch (error) {
       console.error('Error fetching profile:', error)
@@ -68,6 +81,7 @@ export const useAuth = () => {
       if (error) throw error
       return { data, error: null }
     } catch (error) {
+      console.error('Signup error:', error)
       return { data: null, error }
     }
   }
@@ -82,13 +96,19 @@ export const useAuth = () => {
       if (error) throw error
       return { data, error: null }
     } catch (error) {
+      console.error('Signin error:', error)
       return { data: null, error }
     }
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+    } catch (error) {
+      console.error('Signout error:', error)
+      throw error
+    }
   }
 
   return {

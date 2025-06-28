@@ -20,6 +20,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   const { signIn, signUp } = useAuth()
 
@@ -29,11 +30,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSuccess('')
 
     try {
       if (mode === 'signin') {
         const { error } = await signIn(formData.email, formData.password)
         if (error) throw error
+        onClose()
       } else {
         const { error } = await signUp(
           formData.email, 
@@ -42,10 +45,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           formData.userType
         )
         if (error) throw error
+        
+        setSuccess('Account created successfully! Please check your email to verify your account.')
+        // Don't close modal immediately for signup to show success message
+        setTimeout(() => {
+          onClose()
+        }, 3000)
       }
-      onClose()
     } catch (error: any) {
-      setError(error.message || 'An error occurred')
+      console.error('Auth error:', error)
+      setError(error.message || 'An error occurred during authentication')
     } finally {
       setLoading(false)
     }
@@ -110,6 +119,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               value={formData.password}
               onChange={(e) => handleInputChange('password', e.target.value)}
               required
+              helperText={mode === 'signup' ? 'Password must be at least 6 characters' : undefined}
             />
 
             {error && (
@@ -118,10 +128,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               </div>
             )}
 
+            {success && (
+              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-lg">
+                {success}
+              </div>
+            )}
+
             <Button
               type="submit"
               className="w-full"
               loading={loading}
+              disabled={loading}
             >
               {mode === 'signin' ? 'Sign In' : 'Create Account'}
             </Button>
@@ -129,8 +146,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
           <div className="mt-6 text-center">
             <button
-              onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
+              onClick={() => {
+                setMode(mode === 'signin' ? 'signup' : 'signin')
+                setError('')
+                setSuccess('')
+              }}
               className="text-blue-600 hover:text-blue-700 text-sm"
+              disabled={loading}
             >
               {mode === 'signin' 
                 ? "Don't have an account? Sign up" 
