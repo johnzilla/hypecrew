@@ -108,9 +108,6 @@ This project is part of a portfolio demonstrating full-stack development capabil
 
 ## 👨‍💻 Author
 
-**John Turner** - Director of Product Security at Bose Corporation  
 - LinkedIn: [@johnturner313](https://www.linkedin.com/in/johnturner313)
 - GitHub: [@johnzilla](https://github.com/johnzilla)
 - Portfolio: [johnturner.com](https://johnturner.com)
-
-*Applying 15+ years of security expertise to innovative marketplace development.*
