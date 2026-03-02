@@ -1,0 +1,20 @@
+name: hypecrew
+region: sfo
+
+static_sites:
+  - name: hypecrew-web
+    github:
+      repo: johnzilla/hypecrew
+      branch: main
+      deploy_on_push: true
+    build_command: npm install && npm run build
+    output_dir: dist
+    catchall_document: index.html
+    environment_slug: node-js
+    envs:
+      - key: VITE_SUPABASE_URL
+        value: ${VITE_SUPABASE_URL}
+        type: SECRET
+      - key: VITE_SUPABASE_ANON_KEY
+        value: ${VITE_SUPABASE_ANON_KEY}
+        type: SECRET
