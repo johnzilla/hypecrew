@@ -53,13 +53,13 @@ HypeCrew bridges the gap between event organizers and professional hype performe
 ### Prerequisites
 
 - Node.js 18+
-- A [Supabase](https://supabase.com) project
+- A Supabase backend -- either [Supabase Cloud](https://supabase.com) or [self-hosted](#deployment) on your own server
 
 ### Setup
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/hypecrew/hypecrew.git
+   git clone https://github.com/johnzilla/hypecrew.git
    cd hypecrew
    ```
 
@@ -119,6 +119,14 @@ src/
   main.tsx          # Entry point (ErrorBoundary + AuthProvider)
 supabase/
   migrations/       # Database schema, RLS policies, triggers
+infra/              # Deployment and infrastructure configs
+  README.md         # Detailed infrastructure documentation
+  setup-supabase.sh # Self-hosted Supabase provisioning script
+.do/
+  app.yaml          # DigitalOcean App Platform spec
+.github/
+  workflows/
+    ci.yml          # GitHub Actions CI pipeline
 ```
 
 ## Database Schema
@@ -130,6 +138,37 @@ supabase/
 - **messages** -- Real-time messaging between users
 
 All tables use Row Level Security (RLS). Profile creation is handled automatically via a database trigger on `auth.users` insert.
+
+## Deployment
+
+### CI/CD
+
+GitHub Actions runs typecheck, lint, and build on every push and pull request to `main`. See `.github/workflows/ci.yml`.
+
+### Frontend -- DigitalOcean App Platform
+
+The frontend deploys as a static site on DO App Platform with auto-deploy on push to `main`.
+
+1. Go to [DigitalOcean App Platform](https://cloud.digitalocean.com/apps) and connect this GitHub repo
+2. It will auto-detect the `.do/app.yaml` spec
+3. Set the `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` environment variables
+4. Deploy -- every subsequent push to `main` auto-deploys
+
+### Backend -- Self-hosted Supabase
+
+The backend runs the full Supabase stack (Postgres, Auth, REST API, Realtime, Studio dashboard) on a single DigitalOcean droplet via Docker Compose.
+
+**Requirements**: 4 GB RAM / 2 vCPU minimum, Ubuntu 22.04+
+
+**Quick start** -- SSH into your droplet and run:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/johnzilla/hypecrew/main/infra/setup-supabase.sh)
+```
+
+The script installs Docker, clones the official Supabase docker setup, generates secure secrets, and starts all services. After setup, apply the HypeCrew database migrations and point the frontend env vars at your droplet.
+
+See [infra/README.md](infra/README.md) for the full architecture diagram, step-by-step instructions, and production hardening checklist.
 
 ## Future Enhancements
 
