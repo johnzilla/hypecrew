@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
-import { Calendar, MapPin, DollarSign, Plus } from 'lucide-react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input, Textarea, Select } from '../components/ui/Input'
 import { Card, CardContent, CardHeader } from '../components/ui/Card'
@@ -7,12 +8,9 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { EVENT_TYPES, HYPE_STYLES } from '../lib/types'
 
-interface PostGigProps {
-  onGigPosted: () => void
-}
-
-export const PostGig: React.FC<PostGigProps> = ({ onGigPosted }) => {
-  const { user } = useAuth()
+export function PostGig() {
+  const { user, profile } = useAuth()
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -23,90 +21,115 @@ export const PostGig: React.FC<PostGigProps> = ({ onGigPosted }) => {
     end_time: '',
     budget: '',
     requirements: [''],
-    hype_styles_wanted: [] as string[]
+    hype_styles_wanted: [] as string[],
   })
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  if (profile?.user_type === 'performer') {
+    return (
+      <div className="max-w-4xl mx-auto p-4">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Find Gigs</h1>
+          <p className="text-gray-600">Browse available gigs that match your skills</p>
+        </div>
+        <Button onClick={() => navigate('/browse')}>Browse Available Gigs</Button>
+      </div>
+    )
   }
 
-  const handleRequirementChange = (index: number, value: string) => {
-    const newRequirements = [...formData.requirements]
-    newRequirements[index] = value
-    setFormData(prev => ({ ...prev, requirements: newRequirements }))
+  function validate(): boolean {
+    const errs: Record<string, string> = {}
+
+    if (!formData.title.trim()) errs.title = 'Title is required'
+    if (!formData.description.trim()) errs.description = 'Description is required'
+    if (!formData.event_type) errs.event_type = 'Event type is required'
+    if (!formData.location.trim()) errs.location = 'Location is required'
+    if (!formData.date) {
+      errs.date = 'Date is required'
+    } else {
+      const gigDate = new Date(formData.date)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (gigDate < today) errs.date = 'Date must be in the future'
+    }
+    if (!formData.start_time) errs.start_time = 'Start time is required'
+
+    const budget = parseFloat(formData.budget)
+    if (!formData.budget || isNaN(budget)) {
+      errs.budget = 'Budget is required'
+    } else if (budget <= 0) {
+      errs.budget = 'Budget must be greater than zero'
+    }
+
+    setErrors(errs)
+    return Object.keys(errs).length === 0
   }
 
-  const addRequirement = () => {
-    setFormData(prev => ({ 
-      ...prev, 
-      requirements: [...prev.requirements, ''] 
+  function handleInputChange(field: string, value: string | string[]) {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next[field]
+        return next
+      })
+    }
+  }
+
+  function handleRequirementChange(index: number, value: string) {
+    const updated = [...formData.requirements]
+    updated[index] = value
+    setFormData((prev) => ({ ...prev, requirements: updated }))
+  }
+
+  function addRequirement() {
+    setFormData((prev) => ({ ...prev, requirements: [...prev.requirements, ''] }))
+  }
+
+  function removeRequirement(index: number) {
+    setFormData((prev) => ({
+      ...prev,
+      requirements: prev.requirements.filter((_, i) => i !== index),
     }))
   }
 
-  const removeRequirement = (index: number) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      requirements: prev.requirements.filter((_, i) => i !== index) 
-    }))
-  }
-
-  const toggleHypeStyle = (style: string) => {
-    setFormData(prev => ({
+  function toggleHypeStyle(style: string) {
+    setFormData((prev) => ({
       ...prev,
       hype_styles_wanted: prev.hype_styles_wanted.includes(style)
-        ? prev.hype_styles_wanted.filter(s => s !== style)
-        : [...prev.hype_styles_wanted, style]
+        ? prev.hype_styles_wanted.filter((s) => s !== style)
+        : [...prev.hype_styles_wanted, style],
     }))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!user) return
+    if (!user || !validate()) return
 
     setLoading(true)
-    setError('')
 
     try {
-      const { error } = await supabase
-        .from('gigs')
-        .insert([
-          {
-            client_id: user.id,
-            title: formData.title,
-            description: formData.description,
-            event_type: formData.event_type,
-            location: formData.location,
-            date: formData.date,
-            start_time: formData.start_time,
-            end_time: formData.end_time || null,
-            budget: parseFloat(formData.budget),
-            requirements: formData.requirements.filter(req => req.trim() !== ''),
-            hype_styles_wanted: formData.hype_styles_wanted,
-            status: 'open'
-          }
-        ])
-
-      if (error) throw error
-
-      // Reset form
-      setFormData({
-        title: '',
-        description: '',
-        event_type: '',
-        location: '',
-        date: '',
-        start_time: '',
-        end_time: '',
-        budget: '',
-        requirements: [''],
-        hype_styles_wanted: []
+      const { error } = await supabase.from('gigs').insert({
+        client_id: user.id,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        event_type: formData.event_type,
+        location: formData.location.trim(),
+        date: formData.date,
+        start_time: formData.start_time,
+        end_time: formData.end_time || null,
+        budget: parseFloat(formData.budget),
+        requirements: formData.requirements.filter((r) => r.trim() !== ''),
+        hype_styles_wanted: formData.hype_styles_wanted,
+        status: 'open',
       })
 
-      onGigPosted()
-    } catch (error: any) {
-      setError(error.message || 'Failed to post gig')
+      if (error) throw error
+      navigate('/browse')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to post gig'
+      setErrors({ submit: msg })
     } finally {
       setLoading(false)
     }
@@ -132,25 +155,26 @@ export const PostGig: React.FC<PostGigProps> = ({ onGigPosted }) => {
               placeholder="e.g., Wedding entrance energy crew needed"
               value={formData.title}
               onChange={(e) => handleInputChange('title', e.target.value)}
+              error={errors.title}
               required
             />
-
             <Textarea
               label="Description"
               placeholder="Describe what you need, the vibe you're going for, and any specific requirements..."
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
+              error={errors.description}
               rows={4}
               required
             />
-
             <Select
               label="Event Type"
               value={formData.event_type}
               onChange={(e) => handleInputChange('event_type', e.target.value)}
+              error={errors.event_type}
               options={[
                 { value: '', label: 'Select event type' },
-                ...EVENT_TYPES.map(type => ({ value: type, label: type }))
+                ...EVENT_TYPES.map((type) => ({ value: type, label: type })),
               ]}
               required
             />
@@ -168,6 +192,7 @@ export const PostGig: React.FC<PostGigProps> = ({ onGigPosted }) => {
                 type="date"
                 value={formData.date}
                 onChange={(e) => handleInputChange('date', e.target.value)}
+                error={errors.date}
                 required
               />
               <Input
@@ -175,10 +200,10 @@ export const PostGig: React.FC<PostGigProps> = ({ onGigPosted }) => {
                 type="time"
                 value={formData.start_time}
                 onChange={(e) => handleInputChange('start_time', e.target.value)}
+                error={errors.start_time}
                 required
               />
             </div>
-
             <Input
               label="End Time (Optional)"
               type="time"
@@ -186,12 +211,12 @@ export const PostGig: React.FC<PostGigProps> = ({ onGigPosted }) => {
               onChange={(e) => handleInputChange('end_time', e.target.value)}
               helperText="Leave blank if duration is flexible"
             />
-
             <Input
               label="Location"
               placeholder="e.g., Sydney CBD, Melbourne Convention Centre"
               value={formData.location}
               onChange={(e) => handleInputChange('location', e.target.value)}
+              error={errors.location}
               required
             />
           </CardContent>
@@ -205,11 +230,12 @@ export const PostGig: React.FC<PostGigProps> = ({ onGigPosted }) => {
             <Input
               label="Budget (AUD)"
               type="number"
-              min="0"
+              min="1"
               step="10"
               placeholder="200"
               value={formData.budget}
               onChange={(e) => handleInputChange('budget', e.target.value)}
+              error={errors.budget}
               required
             />
 
@@ -245,34 +271,21 @@ export const PostGig: React.FC<PostGigProps> = ({ onGigPosted }) => {
                     className="flex-1"
                   />
                   {formData.requirements.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeRequirement(index)}
-                    >
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeRequirement(index)}>
                       Remove
                     </Button>
                   )}
                 </div>
               ))}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={addRequirement}
-                icon={Plus}
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={addRequirement} icon={Plus}>
                 Add Requirement
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {error && (
-          <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
-            {error}
-          </div>
+        {errors.submit && (
+          <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">{errors.submit}</div>
         )}
 
         <div className="flex gap-3">

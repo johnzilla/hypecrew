@@ -1,25 +1,18 @@
-import React, { useState, useEffect } from 'react'
-import { Search, Filter, SlidersHorizontal } from 'lucide-react'
-import { Input } from '../ui/Input'
+import { useState, useEffect } from 'react'
+import { Search, SlidersHorizontal } from 'lucide-react'
+import { Input, Select } from '../ui/Input'
 import { Button } from '../ui/Button'
-import { Select } from '../ui/Input'
 import { GigCard } from './GigCard'
 import { supabase } from '../../lib/supabase'
-import { Gig, HYPE_STYLES, EVENT_TYPES } from '../../lib/types'
+import { HYPE_STYLES, EVENT_TYPES } from '../../lib/types'
+import type { Gig } from '../../lib/types'
 
 interface GigListProps {
-  onViewGig: (gig: Gig) => void
-  onApplyToGig?: (gig: Gig) => void
   showApplyButton?: boolean
 }
 
-export const GigList: React.FC<GigListProps> = ({ 
-  onViewGig, 
-  onApplyToGig,
-  showApplyButton = false 
-}) => {
+export function GigList({ showApplyButton = false }: GigListProps) {
   const [gigs, setGigs] = useState<Gig[]>([])
-  const [filteredGigs, setFilteredGigs] = useState<Gig[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEventType, setSelectedEventType] = useState('')
@@ -28,57 +21,49 @@ export const GigList: React.FC<GigListProps> = ({
 
   useEffect(() => {
     fetchGigs()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    filterGigs()
-  }, [gigs, searchTerm, selectedEventType, selectedHypeStyle])
-
-  const fetchGigs = async () => {
+  async function fetchGigs() {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('gigs')
-        .select(`
-          *,
-          client:profiles(*)
-        `)
+        .select('*, client:profiles(*)')
         .eq('status', 'open')
         .order('created_at', { ascending: false })
 
+      if (selectedEventType) {
+        query = query.eq('event_type', selectedEventType)
+      }
+
+      if (selectedHypeStyle) {
+        query = query.contains('hype_styles_wanted', [selectedHypeStyle])
+      }
+
+      const { data, error } = await query
       if (error) throw error
-      setGigs(data || [])
-    } catch (error) {
-      console.error('Error fetching gigs:', error)
+      setGigs(data ?? [])
+    } catch {
+      setGigs([])
     } finally {
       setLoading(false)
     }
   }
 
-  const filterGigs = () => {
-    let filtered = [...gigs]
+  useEffect(() => {
+    setLoading(true)
+    fetchGigs()
+  }, [selectedEventType, selectedHypeStyle]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    if (searchTerm) {
-      filtered = filtered.filter(gig => 
-        gig.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        gig.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        gig.location.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredGigs = searchTerm
+    ? gigs.filter(
+        (gig) =>
+          gig.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          gig.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          gig.location.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    }
+    : gigs
 
-    if (selectedEventType) {
-      filtered = filtered.filter(gig => gig.event_type === selectedEventType)
-    }
-
-    if (selectedHypeStyle) {
-      filtered = filtered.filter(gig => 
-        gig.hype_styles_wanted.includes(selectedHypeStyle)
-      )
-    }
-
-    setFilteredGigs(filtered)
-  }
-
-  const clearFilters = () => {
+  function clearFilters() {
     setSearchTerm('')
     setSelectedEventType('')
     setSelectedHypeStyle('')
@@ -87,10 +72,10 @@ export const GigList: React.FC<GigListProps> = ({
   if (loading) {
     return (
       <div className="space-y-4">
-        {[...Array(5)].map((_, i) => (
+        {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="bg-white rounded-xl p-4 animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+            <div className="h-3 bg-gray-200 rounded w-1/2" />
           </div>
         ))}
       </div>
@@ -99,7 +84,6 @@ export const GigList: React.FC<GigListProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Search and Filter Controls */}
       <div className="bg-white rounded-xl p-4 shadow-sm">
         <div className="flex gap-2 mb-3">
           <div className="flex-1 relative">
@@ -129,7 +113,7 @@ export const GigList: React.FC<GigListProps> = ({
               onChange={(e) => setSelectedEventType(e.target.value)}
               options={[
                 { value: '', label: 'All Event Types' },
-                ...EVENT_TYPES.map(type => ({ value: type, label: type }))
+                ...EVENT_TYPES.map((type) => ({ value: type, label: type })),
               ]}
             />
             <Select
@@ -138,7 +122,7 @@ export const GigList: React.FC<GigListProps> = ({
               onChange={(e) => setSelectedHypeStyle(e.target.value)}
               options={[
                 { value: '', label: 'All Hype Styles' },
-                ...HYPE_STYLES.map(style => ({ value: style, label: style }))
+                ...HYPE_STYLES.map((style) => ({ value: style, label: style })),
               ]}
             />
             {(selectedEventType || selectedHypeStyle || searchTerm) && (
@@ -152,12 +136,10 @@ export const GigList: React.FC<GigListProps> = ({
         )}
       </div>
 
-      {/* Results */}
       <div className="text-sm text-gray-600 px-1">
         {filteredGigs.length} gig{filteredGigs.length !== 1 ? 's' : ''} available
       </div>
 
-      {/* Gig Cards */}
       <div className="space-y-4">
         {filteredGigs.length === 0 ? (
           <div className="text-center py-12">
@@ -168,13 +150,7 @@ export const GigList: React.FC<GigListProps> = ({
           </div>
         ) : (
           filteredGigs.map((gig) => (
-            <GigCard
-              key={gig.id}
-              gig={gig}
-              onViewDetails={onViewGig}
-              showApplyButton={showApplyButton}
-              onApply={onApplyToGig}
-            />
+            <GigCard key={gig.id} gig={gig} showApplyButton={showApplyButton} />
           ))
         )}
       </div>

@@ -1,8 +1,7 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { X, Users } from 'lucide-react'
 import { Button } from '../ui/Button'
-import { Input } from '../ui/Input'
-import { Select } from '../ui/Input'
+import { Input, Select } from '../ui/Input'
 import { useAuth } from '../../hooks/useAuth'
 
 interface AuthModalProps {
@@ -10,13 +9,13 @@ interface AuthModalProps {
   onClose: () => void
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     fullName: '',
-    userType: 'client' as 'performer' | 'client'
+    userType: 'client' as 'performer' | 'client',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -26,7 +25,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
@@ -34,71 +33,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     try {
       if (mode === 'signin') {
-        const { error } = await signIn(formData.email, formData.password)
-        if (error) throw error
+        const { error: err } = await signIn(formData.email, formData.password)
+        if (err) throw err
         onClose()
       } else {
-        // Validate form data
-        if (!formData.fullName.trim()) {
-          throw new Error('Full name is required')
-        }
-        if (formData.password.length < 6) {
-          throw new Error('Password must be at least 6 characters long')
-        }
-        
-        const { error } = await signUp(
-          formData.email, 
-          formData.password, 
-          formData.fullName.trim(), 
+        if (!formData.fullName.trim()) throw new Error('Full name is required')
+        if (formData.password.length < 6) throw new Error('Password must be at least 6 characters')
+
+        const { error: err } = await signUp(
+          formData.email,
+          formData.password,
+          formData.fullName.trim(),
           formData.userType
         )
-        
-        if (error) throw error
-        
+        if (err) throw err
+
         setSuccess('Account created successfully! You can now sign in.')
-        
-        // Reset form and switch to signin mode
-        setFormData({
-          email: formData.email, // Keep email for convenience
-          password: '',
-          fullName: '',
-          userType: 'client'
-        })
+        setFormData({ email: formData.email, password: '', fullName: '', userType: 'client' })
         setMode('signin')
       }
-    } catch (error: any) {
-      console.error('Auth error:', error)
-      let errorMessage = 'An error occurred during authentication'
-      
-      if (error.message) {
-        errorMessage = error.message
-      } else if (error.error_description) {
-        errorMessage = error.error_description
-      }
-      
-      setError(errorMessage)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'An error occurred during authentication'
+      setError(msg)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-    // Clear errors when user starts typing
+  function handleInputChange(field: string, value: string) {
+    setFormData((prev) => ({ ...prev, [field]: value }))
     if (error) setError('')
     if (success) setSuccess('')
   }
 
-  const switchMode = () => {
+  function switchMode() {
     setMode(mode === 'signin' ? 'signup' : 'signin')
     setError('')
     setSuccess('')
-    setFormData({
-      email: '',
-      password: '',
-      fullName: '',
-      userType: 'client'
-    })
+    setFormData({ email: '', password: '', fullName: '', userType: 'client' })
   }
 
   return (
@@ -138,7 +110,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   onChange={(e) => handleInputChange('userType', e.target.value)}
                   options={[
                     { value: 'client', label: 'Client (Looking for hype talent)' },
-                    { value: 'performer', label: 'Performer (Providing hype services)' }
+                    { value: 'performer', label: 'Performer (Providing hype services)' },
                   ]}
                   disabled={loading}
                 />
@@ -169,19 +141,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 {error}
               </div>
             )}
-
             {success && (
               <div className="text-green-600 text-sm bg-green-50 p-3 rounded-lg border border-green-200">
                 {success}
               </div>
             )}
 
-            <Button
-              type="submit"
-              className="w-full"
-              loading={loading}
-              disabled={loading}
-            >
+            <Button type="submit" className="w-full" loading={loading} disabled={loading}>
               {mode === 'signin' ? 'Sign In' : 'Create Account'}
             </Button>
           </form>
@@ -192,10 +158,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               className="text-blue-600 hover:text-blue-700 text-sm transition-colors"
               disabled={loading}
             >
-              {mode === 'signin' 
-                ? "Don't have an account? Sign up" 
-                : "Already have an account? Sign in"
-              }
+              {mode === 'signin'
+                ? "Don't have an account? Sign up"
+                : 'Already have an account? Sign in'}
             </button>
           </div>
         </div>

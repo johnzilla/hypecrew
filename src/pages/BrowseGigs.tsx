@@ -1,14 +1,7 @@
-import React from 'react'
 import { GigList } from '../components/gigs/GigList'
-import { Gig } from '../lib/types'
 import { useAuth } from '../hooks/useAuth'
 
-interface BrowseGigsProps {
-  onViewGig: (gig: Gig) => void
-  onApplyToGig: (gig: Gig) => void
-}
-
-export const BrowseGigs: React.FC<BrowseGigsProps> = ({ onViewGig, onApplyToGig }) => {
+export function BrowseGigs() {
   const { profile } = useAuth()
   const isPerformer = profile?.user_type === 'performer'
 
@@ -19,18 +12,13 @@ export const BrowseGigs: React.FC<BrowseGigsProps> = ({ onViewGig, onApplyToGig 
           {isPerformer ? 'Available Gigs' : 'Browse Talent'}
         </h1>
         <p className="text-gray-600">
-          {isPerformer 
+          {isPerformer
             ? 'Find exciting opportunities to showcase your hype skills'
-            : 'Discover amazing performers for your next event'
-          }
+            : 'Discover amazing performers for your next event'}
         </p>
       </div>
 
-      <GigList
-        onViewGig={onViewGig}
-        onApplyToGig={onApplyToGig}
-        showApplyButton={isPerformer}
-      />
+      <GigList showApplyButton={isPerformer} />
     </div>
   )
 }
